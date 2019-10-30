@@ -1,29 +1,9 @@
-rails_root = File.expand_path('../../', __FILE__)
+worker_processes Integer(ENV["WEB_CONCURRENCY"] || 3)
+timeout 15
+preload_app true
+worker_processes 4
+listen 'unix:///tmp/nginx.socket', backlog: 1024
 
-worker_processes 2
-working_directory rails_root
-
-listen "#{rails_root}/tmp/sockets/unicorn.sock"
-pid "#{rails_root}/tmp/pids/unicorn.pid"
-
-before_fork do |server, worker|
-  Signal.trap 'TERM' do
-    puts 'Unicorn master intercepting TERM and sending myself QUIT instead'
-    Process.kill 'QUIT', Process.pid
-  end
-
-  defined?(ActiveRecord::Base) and
-    ActiveRecord::Base.connection.disconnect!
+before_fork do |server,worker|
+    FileUtils.touch('/tmp/app-initialized')
 end
-
-after_fork do |server, worker|
-  Signal.trap 'TERM' do
-    puts 'Unicorn worker intercepting TERM and doing nothing. Wait for master to send QUIT'
-  end
-
-  defined?(ActiveRecord::Base) and
-    ActiveRecord::Base.establish_connection
-end
-
-stderr_path "#{rails_root}/log/unicorn_error.log"
-stdout_path "#{rails_root}/log/unicorn.log"
